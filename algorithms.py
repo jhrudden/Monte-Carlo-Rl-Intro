@@ -24,7 +24,6 @@ def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum
         if len(episodes) == 0 and exploring_starts:
             action = env.action_space.sample()
         else:
-            tesst = "test"
             action = policy(state)
         next_state, reward, terminated, _, __ = env.step(action)
         episodes.append((state, action, reward))
@@ -32,7 +31,25 @@ def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum
             break
         state = next_state
     
-    return episodes[::-1] # Reverse the episode so that the first value is the terminal state
+    return episodes
+
+def get_first_visit_indices(episode: List[Tuple[Tuple[int, int, bool], IntEnum, float]]) -> Dict[Tuple[int, int, bool], int]:
+    """
+    Get the time step of the first visit to each state in the episode.
+
+    Args:
+        episode: The episode to get the first visit indices for.
+
+    Returns:
+        A dictionary mapping state to the index of the first visit to that state.
+    """
+    first_visit_step = {}
+
+    for i, (state, _, _) in enumerate(episode):
+        if state not in first_visit_step:
+            first_visit_step[state] = i
+
+    return first_visit_step
 
 def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum], gamma: float = 0.9, num_episodes: int =10_000) -> Dict[Tuple[int, int, bool], float]:
     """
@@ -53,15 +70,14 @@ def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]]
     for _ in range(num_episodes):
         # Generate an episode
         episode = generate_episode(env, policy)
+        first_visit_step = get_first_visit_indices(episode)
+        
         G = 0
-        visited = set()
-
-        # Update the value function for each state in the episode
-        states, actions, rewards = zip(*episode)
-        for i, state in enumerate(states):
-            G = gamma * G + rewards[i]
-            if state not in visited:
-                visited.add(state)
+        T = len(episode)
+        for t in range(T-1, -1, -1):
+            state, action, reward = episode[t]
+            G = gamma * G + reward
+            if first_visit_step[state] == t:
                 N[state] += 1
                 V[state] += (G - V[state]) / N[state]
 
@@ -91,17 +107,15 @@ def monte_carlo_ex_fv(env: Env, initial_policy: Callable[[Tuple[int, int, bool]]
     for _ in range(num_episodes):
         # Generate an episode
         episode = generate_episode(env, policy, exploring_starts=True)
-        G = 0
-        visited = set() # Keep track of visited state-action pairs
+        first_visit_step = get_first_visit_indices(episode)
 
-        # Update the value function for each state in the episode
-        states, actions, rewards = zip(*episode)
-        for i, state in enumerate(states):
-            action = actions[i]
-            state_action = (state, action)
-            G = gamma * G + rewards[i]
-            if state_action not in visited:
-                visited.add(state_action)
+        G = 0
+        T = len(episode)
+        for t in range(T - 1, -1, -1):
+            state, action, reward = episode[t]
+            G = gamma * G + reward
+            if first_visit_step[state] == t:
+                state_action = (state, action)
                 N[state_action] += 1
                 Q[state][action] += (G - Q[state][action]) / N[state_action]
     
