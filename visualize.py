@@ -27,13 +27,11 @@ def plot_blackjack_value_function(ax: Axes3D, V: Dict[Tuple[int, int, bool], flo
     X, Y = np.meshgrid(range(1, 11), range(12, 22))  # Dealer showing, Player's sum
     Z = np.apply_along_axis(lambda idx: V[(idx[1], idx[0], usable_ace)], 2, np.dstack([X, Y]))
 
-    ax.plot_surface(X, Y, Z, rstride=1, cstride=1, edgecolors='k', alpha=0.3)
+    ax.plot_surface(X, Y, Z, rstride=1, cstride=1, edgecolors='k')
     ax.set_title(title)
     ax.set_ylabel('Player Score')
     ax.set_xlabel('Dealer Showing')
     ax.set_zlabel('Value')
-    ax.set_zticks(range(-1, 2))
-    ax.set_zticklabels(['-1', '', '1'])
     # dealer label A to 10
     ax.set_xticks(range(1, 11))
     ax.set_xticklabels(['A'] + [str(n) for n in range(2, 10)] + ['10'])
@@ -69,13 +67,8 @@ def plot_blackjack_policy(ax: plt.Axes, policy: Dict[Tuple[int, int, bool], int]
     X, Y = np.meshgrid(np.arange(0.5, 10.5), np.arange(10.5, 21.5))    
 
     cmap = plt.get_cmap('gray', 2)
-    
     # Plot the policy using imshow with the correct extent
     im = ax.imshow(policy_grid_flipped, cmap=cmap, extent=[0, 10, 10, 21], aspect='equal', alpha=0.2, origin='upper')
-
-    # Draw the contour line where the policy changes from hit (0) to stick (1)
-    # cs = ax.contour(X, Y, policy_grid, levels=[0.5], colors='black', linewidths=1)
-    # ax.clabel(cs, fmt=lambda x: 'STICK' if x > 0.5 else 'HIT', fontsize=9, inline=True)
     ax.set_aspect('equal')
     
     # Formatting the plot
