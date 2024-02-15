@@ -4,6 +4,7 @@ from gymnasium.utils import seeding
 from gymnasium.envs.registration import register
 from enum import IntEnum
 from typing import Tuple, Optional, List
+import numpy as np
 
 def register_env() -> None:
     """Register custom gym environment so that we can use `gym.make()`
@@ -25,9 +26,20 @@ def create_blackjack_env():
     return gym.make('Blackjack-v1', sab=True)
 
 
-def get_four_rooms_env():
-    register_env()
-    return gym.make('FourRooms-v0')
+def get_four_rooms_env(goal_pos=(10, 10)):
+    """
+    Get the FourRooms environment
+    Args:
+        goal_pos (Tuple[int, int]): goal position
+    Returns:
+        env (FourRoomsEnv): FourRooms environment
+    """
+    try:
+        spec = gym.spec('FourRooms-v0')
+    except:
+        register_env()
+    finally:
+        return gym.make('FourRooms-v0', goal_pos=goal_pos)
 
 
 class FourRoomAction(IntEnum):
@@ -47,10 +59,10 @@ def actions_to_dxdy(action: FourRoomAction) -> Tuple[int, int]:
         dxdy (Tuple[int, int]): Change in x and y coordinates
     """
     mapping = {
-        Action.LEFT: (-1, 0),
-        Action.DOWN: (0, -1),
-        Action.RIGHT: (1, 0),
-        Action.UP: (0, 1),
+        FourRoomAction.LEFT: (-1, 0),
+        FourRoomAction.DOWN: (0, -1),
+        FourRoomAction.RIGHT: (1, 0),
+        FourRoomAction.UP: (0, 1),
     }
     return mapping[action]
 
@@ -63,10 +75,10 @@ def perpendicular_actions(action: FourRoomAction) -> List[FourRoomAction]:
         perpendicular_actions (List[Action]): Perpendicular actions to the given action
     """
     mapping = {
-        Action.LEFT: [Action.DOWN, Action.UP],
-        Action.DOWN: [Action.LEFT, Action.RIGHT],
-        Action.RIGHT: [Action.DOWN, Action.UP],
-        Action.UP: [Action.LEFT, Action.RIGHT],
+        FourRoomAction.LEFT: [FourRoomAction.DOWN, FourRoomAction.UP],
+        FourRoomAction.DOWN: [FourRoomAction.LEFT, FourRoomAction.RIGHT],
+        FourRoomAction.RIGHT: [FourRoomAction.DOWN, FourRoomAction.UP],
+        FourRoomAction.UP: [FourRoomAction.LEFT, FourRoomAction.RIGHT],
     }
     return mapping[action]
 
@@ -78,6 +90,7 @@ class FourRoomsEnv(Env):
     """
 
     def __init__(self, goal_pos=(10, 10)) -> None:
+        super().__init__()
         self.rows = 11
         self.cols = 11
 
@@ -111,20 +124,6 @@ class FourRoomsEnv(Env):
             (spaces.Discrete(self.rows), spaces.Discrete(self.cols))
         )
 
-    def seed(self, seed: Optional[int] = None) -> List[int]:
-        """Fix seed of environment
-
-        In order to make the environment completely reproducible, call this function and seed the action space as well.
-            env = gym.make(...)
-            env.seed(seed)
-            env.action_space.seed(seed)
-
-        This function does not need to be used for this assignment, it is given only for reference.
-        """
-
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
     def reset(self) -> Tuple[int, int]:
         """Reset agent to the starting position.
 
@@ -133,7 +132,7 @@ class FourRoomsEnv(Env):
         """
         self.agent_pos = self.start_pos
 
-        return self.agent_pos
+        return (self.agent_pos, {})
 
     def step(self, action: FourRoomAction) -> Tuple[Tuple[int, int], float, bool, dict]:
         """Take one step in the environment.
@@ -151,6 +150,18 @@ class FourRoomsEnv(Env):
             info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning). Not used in this assignment.
         """
         EPSILON = 0.1
+        
+        random_val = np.random.random()
+        if random_val < EPSILON:
+            action_taken = np.random.choice(perpendicular_actions(action))
+        else:
+            action_taken = action
+
+        dx, dy = actions_to_dxdy(action_taken)
+        next_pos = (self.agent_pos[0] + dx, self.agent_pos[1] + dy)
+
+        if self._valid_position(next_pos):
+            self.agent_pos = next_pos
 
         # Check if goal was reached
         if self.agent_pos == self.goal_pos:
@@ -160,18 +171,7 @@ class FourRoomsEnv(Env):
             done = False
             reward = 0.0
 
-        
-        action_taken = np.choice([action] + perpendicular_actions(action), p=[1-EPSILON, EPSILON/2, EPSILON/2])
-
-        dx, dy = actions_to_dxdy(action_taken)
-        next_pos = (self.agent_pos[0] + dx, self.agent_pos[1] + dy)
-
-        if self._valid_position(next_pos):
-            self.agent_pos = next_pos
-        else:
-            pass # don't update state if action is invalid
-
-        return self.agent_pos, reward, done, {}
+        return self.agent_pos, reward, done, False, {}
     
     def _valid_position(self, pos: Tuple[int, int]) -> bool:
         """
@@ -181,7 +181,7 @@ class FourRoomsEnv(Env):
         Returns:
             valid (bool): True if position is valid, False otherwise
         """
-        return pos not in self.walls and 0 <= pos[0] < self.rows and 0 <= pos[1] < self.cols
+        return pos not in self.walls and 0 <= pos[0] < self.cols and 0 <= pos[1] < self.rows
 
 
 
