@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 from collections import defaultdict
 
-from policy import create_greedy_policy
+from policy import BlackJackPolicy
 
 def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum], exploring_starts: bool = False) -> List[Tuple[Tuple[int, int, bool], IntEnum, float]]:
     """
@@ -83,13 +83,13 @@ def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]]
 
     return V
 
-def monte_carlo_ex_fv(env: Env, initial_policy: Callable[[Tuple[int, int, bool]], IntEnum], gamma: float = 0.9, num_episodes: int = 10_000) -> Tuple[Dict[Tuple[int, int, bool], float], Dict[Tuple[int, int, bool], IntEnum]]:
+def monte_carlo_ex_fv(env: Env, initial_policy_builder: Callable, gamma: float = 0.9, num_episodes: int = 10_000) -> Tuple[Dict[Tuple[int, int, bool], float], Dict[Tuple[int, int, bool], IntEnum]]:
     """
     Estimate the value function of a given policy using Monte Carlo with exploring starts. Uses first-visit policy evaluation.
 
     Args:
         env: The environment to evaluate the policy on.
-        initial_policy: The initial policy to follow.
+        initial_policy_builder: The initial policy to follow. Should be a function that takes Q-values and returns a policy.
         gamma: The discount factor.
         num_episodes: The number of episodes to sample.
 
@@ -101,7 +101,7 @@ def monte_carlo_ex_fv(env: Env, initial_policy: Callable[[Tuple[int, int, bool]]
     # Initialize the value function and the count of visits to each state
     N = defaultdict(int)
     Q = defaultdict(lambda: list(np.zeros(env.action_space.n)))
-    policy = create_greedy_policy(Q) # Give the policy access to the action-value function 
+    policy = initial_policy_builder(Q) # Give the policy access to the action-value function 
     # as it will be updated during the episode
 
     for _ in range(num_episodes):
