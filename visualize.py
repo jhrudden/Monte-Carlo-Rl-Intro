@@ -92,4 +92,41 @@ def plot_blackjack_policy(ax: plt.Axes, policy: Dict[Tuple[int, int, bool], int]
                    Patch(facecolor='white', edgecolor='gray', label='STICK')]
     ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1, 1), frameon=False, fontsize=20)
 
+# plots results of running experiment on k different hyperparameters for a given algorithm
+# results are an np list of total returns following shape (k, num_experiment_runs, num_episodes)
+def plot_hyperparameter_search_results(results: np.ndarray, hyperparameter_name: str, hyperparameter_values: np.ndarray, num_experiment_runs: int, num_episodes: int, title: str = None, save_path: str = None):
+    """
+    Plots the results of running an experiment on k different hyperparameters for a given algorithm.
 
+    Parameters:
+    results (np.ndarray): An np list of total returns following shape (k, num_experiment_runs, num_episodes).
+    hyperparameter_name (str): The name of the hyperparameter.
+    hyperparameter_values (np.ndarray): The values of the hyperparameter.
+    num_experiment_runs (int): The number of experiment runs.
+    num_episodes (int): The number of episodes.
+    """
+    # Calculate the mean and standard deviation of the total returns for each hyperparameter value
+    mean_returns = np.mean(results, axis=1)
+    std_returns = np.std(results, axis=1)
+    error = 1.96 * std_returns / np.sqrt(num_experiment_runs)  # 95% confidence interval
+
+    # Plot the results
+    plt.figure(figsize=(20, 12))
+
+    for i in range(len(hyperparameter_values)):
+        series = plt.plot(range(num_episodes), mean_returns[i], label=f'{hyperparameter_name}={hyperparameter_values[i]}')[0]
+        plt.fill_between(range(num_episodes), mean_returns[i] - error[i], mean_returns[i] + error[i], alpha=0.2, color=series.get_color())
+
+    # add upper bound
+    plt.hlines(results.max(), 0, num_episodes, colors='r', linestyles='dashed', label='Optimal return')
+
+    if title is not None:
+        plt.title(title)
+    else:
+        plt.title(f'Hyperparameter Search: {hyperparameter_name}')
+    plt.xlabel('Episodes')
+    plt.ylabel('Discounted Returns')
+    plt.legend()
+    if save_path is not None:
+        plt.savefig(save_path)
+    plt.show()
