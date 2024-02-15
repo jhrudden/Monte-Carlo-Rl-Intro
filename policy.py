@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Sequence
 from env import BlackjackAction, FourRoomAction
 import numpy as np
 
@@ -37,7 +37,20 @@ class BlackJackPolicy:
 
         return get_action
 
-# TODO: cleanup to work with ArbitraryEnv + Action space
+
+def argmax(arr: Sequence[float]) -> int:
+    """
+    Argmax that breaks ties randomly (np.argmax only returns first index in case of ties, we don't like this)
+
+    Args:
+        arr: sequence of values
+    
+    Returns:
+        index of maximum value
+    """
+    max_val = np.max(arr)
+    max_indices = np.where(arr == max_val)[0]
+    return np.random.choice(max_indices)
 class FourRoomPolicy:
     # 4 room environment
     @staticmethod
@@ -50,12 +63,9 @@ class FourRoomPolicy:
             epsilon: the probability to select a random action
         """
 
-        def get_action(state: Tuple[int, int, bool]) -> FourRoomAction:
-            nonlocal Q
-            if np.random.random() > epsilon and state in Q:
-                optimal_action = np.argmax(Q[state])
-                return FourRoomAction(optimal_action)
-            else:
-                return np.random.choice(list(FourRoomAction))
-
+        def get_action(state: Tuple) -> FourRoomAction:
+            random_probs = np.zeros(4) + epsilon / 4
+            optimal_action = argmax(Q[state])
+            random_probs[optimal_action] += 1 - epsilon
+            return FourRoomAction(np.random.choice(4, p=random_probs))
         return get_action
