@@ -198,7 +198,7 @@ def get_race_track_env(track_type: TrackType = TrackType.Track0):
     except:
         register_env("RaceTrack-v0", "env:RaceTrackEnv", max_episode_steps=459)
     finally:
-        return gym.make('RaceTrack-v0', track_type)
+        return gym.make('RaceTrack-v0', track_type=track_type)
 
 def get_track(track_type: TrackType) -> ndarray:
     if track_type == TrackType.Track0:
@@ -216,9 +216,7 @@ class RaceTrackEnv(Env):
         self.cols = len(self.track[0])
 
         self.max_speed = max_speed
-        self.action_space = spaces.Tuple(
-            (spaces.Discrete(3, start=-1), spaces.Discrete(3, start=-1))
-        )
+        self.action_space = spaces.Discrete(9)
         self.observation_space = spaces.Tuple(
             (spaces.Discrete(len(self.track)), spaces.Discrete(len(self.track[0])), spaces.Discrete(self.max_speed + 1), spaces.Discrete(self.max_speed + 1))
         )
@@ -233,6 +231,9 @@ class RaceTrackEnv(Env):
         self.agent_pos = None
         self.agent_velocity = (0, 0)
 
+        # actions are (dy, dx) where dx and dy are in [-1, 0, 1] 
+        self.actions = [(dy, dx) for dx in range(-1, 2) for dy in range(-1, 2)]
+
 
     def reset(self) -> Tuple[int, int]:
         """Reset agent to the starting position.
@@ -246,16 +247,17 @@ class RaceTrackEnv(Env):
 
         return ((*self.agent_pos, *self.agent_velocity), {})
 
-    def step(self, action: Tuple[int, int]) -> Tuple[Tuple[int, int], float, bool, dict]:
+    def step(self, action: int) -> Tuple[Tuple[int, int], float, bool, dict]:
         """
         Take one step in the environment.
 
         Takes in an action and returns the (next state, reward, done, info).
         """
-        dx, dy = action
+        assert 0 <= action < 9, "Invalid action"
+        dy, dx = self.actions[action]
 
         # check if the action is valid
-        if not (-1 <= dx < 1 and 1 <= dy < -1):
+        if not (-1 <= dx <= 1 and -1 <= dy <= 1):
             raise ValueError("Invalid action")
         
         reward = -1
@@ -263,13 +265,16 @@ class RaceTrackEnv(Env):
 
         # stochasticity
         if np.random.random() <= 0.1:
-            dx, dy = 0, 0
+            dy, dx = 0, 0
         
-        # update the velocity
-        self.agent_velocity[0] = max(0, min(self.agent_velocity[0] + dx, self.max_speed))
-        self.agent_velocity[1] = max(0, min(self.agent_velocity[1] + dy, self.max_speed))
 
-        new_pos = (self.agent_pos[0] + self.agent_velocity[0], self.agent_pos[1] + self.agent_velocity[1])
+        new_velocity_y = max(0, min(self.agent_velocity[0] + dy, self.max_speed))
+        new_velocity_x = max(0, min(self.agent_velocity[1] + dx, self.max_speed))
+
+        if new_velocity_x != 0 or new_velocity_y != 0:
+            self.agent_velocity = (new_velocity_y, new_velocity_x)
+
+        new_pos = (self.agent_pos[0] - self.agent_velocity[0], self.agent_pos[1] + self.agent_velocity[1])
         if self._finish_line(new_pos):
             done = True
             reward = 0
@@ -312,7 +317,7 @@ class RaceTrackEnv(Env):
         Returns:
             valid (bool): True if position is valid, False otherwise
         """
-        return 0 <= pos[0] < len(self.cols) and 0 <= pos[1] < len(self.rows) and self.track[pos] != 1
+        return 0 <= pos[0] < self.rows and 0 <= pos[1] < self.cols and self.track[pos] != 1
     
     def _choose_starting_position(self) -> Tuple[int, int]:
         """
