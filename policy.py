@@ -51,21 +51,23 @@ def argmax(arr: Sequence[float]) -> int:
     max_val = np.max(arr)
     max_indices = np.where(arr == max_val)[0]
     return np.random.choice(max_indices)
-class FourRoomPolicy:
+
+class EpsilonPolicy:
     # 4 room environment
     @staticmethod
-    def create_epsilon_soft_policy(Q: Dict[Tuple, List[float]], epsilon: float) -> FourRoomAction:
+    def create_epsilon_soft_policy(Q: Dict[Tuple, List[float]], epsilon: float, na: int) -> int:
         """
         A policy that selects the action that maximizes the Q-value for the given observation with probability 1 - epsilon,
 
         Args:
             Q: dictionary mapping state to their Q-values.
             epsilon: the probability to select a random action
+            na: number of actions
         """
 
-        def get_action(state: Tuple) -> FourRoomAction:
-            random_probs = np.zeros(4) + epsilon / 4
+        def get_action(state: Tuple) -> int:
+            random_probs = np.zeros(na) + epsilon / na
             optimal_action = argmax(Q[state])
             random_probs[optimal_action] += 1 - epsilon
-            return FourRoomAction(np.random.choice(4, p=random_probs))
+            return np.random.choice(na, p=random_probs)
         return get_action
