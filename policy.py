@@ -71,3 +71,18 @@ class EpsilonPolicy:
             random_probs[optimal_action] += 1 - epsilon
             return np.random.choice(na, p=random_probs)
         return get_action
+    
+    @staticmethod
+    def create_greedy_policy(Q: Dict[Tuple, List[float]]) -> int:
+        """
+        A policy that selects the action that maximizes the Q-value for the given observation.
+
+        Args:
+            Q: dictionary mapping state to their Q-values.
+        """
+
+        def get_action(state: Tuple) -> int:
+            return argmax(Q[state]) # ties are broken consistently instead of randomly as in create_epsilon_soft_policy
+        
+        raise NotImplementedError("Policies should return action and the probability of taking that action. For our current policie")
+        return get_action
