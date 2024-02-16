@@ -22,8 +22,6 @@ def plot_blackjack_value_function(ax: Axes3D, V: Dict[Tuple[int, int, bool], flo
     usable_ace (bool): True if the plot is for states with a usable ace, False otherwise.
     title (str): The title of the subplot.
     """
-    elev_angle = 30  # Adjust this angle to change the elevation
-    azim_angle = -60  # Adjust this angle to change the azimuth
 
     X, Y = np.meshgrid(range(1, 11), range(12, 22))  # Dealer showing, Player's sum
     Z = np.apply_along_axis(lambda idx: V[(idx[1], idx[0], usable_ace)], 2, np.dstack([X, Y]))
@@ -39,7 +37,6 @@ def plot_blackjack_value_function(ax: Axes3D, V: Dict[Tuple[int, int, bool], flo
     # player label 12 to 21
     ax.set_yticks(range(12, 22))
     ax.set_yticklabels(range(12, 22))
-    ax.view_init(elev=elev_angle, azim=azim_angle)
 
 def plot_blackjack_policy(ax: plt.Axes, policy: Dict[Tuple[int, int, bool], int], usable_ace: bool, title: str):
     """
@@ -119,7 +116,8 @@ def plot_hyperparameter_search_results(results: np.ndarray, hyperparameter_name:
         plt.fill_between(range(num_episodes), mean_returns[i] - error[i], mean_returns[i] + error[i], alpha=0.2, color=series.get_color())
 
     # add upper bound
-    plt.hlines(results.max(), 0, num_episodes, colors='r', linestyles='dashed', label='Optimal return')
+    best_return = np.max(results).round(2)
+    plt.hlines(best_return, 0, num_episodes, colors='r', linestyles='dashed', label=f'Optimal return = {best_return}')
 
     if title is not None:
         plt.title(title)
