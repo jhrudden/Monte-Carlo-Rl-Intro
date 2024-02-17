@@ -7,6 +7,8 @@ from numpy import ndarray
 
 from env import BlackjackAction
 
+# ChatGPT was used to help create `plot_blackjack_policy` and `plot_hyperparameter_search_results` functions
+
 def plot_blackjack_value_function(ax: Axes3D, V: Dict[Tuple[int, int, bool], float], usable_ace: bool, title: str):
     """
     Plots the value function for Blackjack as a surface plot on the given axes.
