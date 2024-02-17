@@ -2,7 +2,7 @@ from typing import Callable, Any, List, Dict, Tuple
 import os
 import pickle
 
-# ChatGPT was heavily used to generate `load_or_compute_and_cache` and `line_cross` functions
+# ChatGPT was heavily used to generate `load_or_compute_and_cache` function
 
 def load_or_compute_and_cache(file_path: str, compute_function: Callable, *args, post_process: Callable = None,  **kwargs) -> Any:
     """
@@ -47,37 +47,3 @@ def policy_to_dict(policy: Callable, states: List[Any]) -> Dict[Tuple[int, int, 
         A dictionary mapping state to action.
     """
     return {state: policy(state) for state in states}
-
-def line_cross(A, B, C, D):
-    """
-    Check if line segment CD crosses line segment AB.
-
-    Args:
-        A, B: Points defining the finish line
-        C, D: Points defining the trajectory
-
-    Returns:
-        bool: True if CD crosses AB, False otherwise.
-    """
-    # Function to calculate the determinant, useful for checking the direction
-    def det(p1, p2, p3):
-        return (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
-
-    # Check if line segments intersect
-    denom = (D[0] - C[0]) * (B[1] - A[1]) - (D[1] - C[1]) * (B[0] - A[0])
-    if denom == 0:
-        return False  # Lines are parallel or coincident
-    
-    t_num = (A[0] - C[0]) * (D[1] - C[1]) - (A[1] - C[1]) * (D[0] - C[0])
-    u_num = (A[0] - C[0]) * (B[1] - A[1]) - (A[1] - C[1]) * (B[0] - A[0])
-    t = t_num / denom
-    u = u_num / denom
-
-    # Intersection check
-    if 0 <= t <= 1 and 0 <= u <= 1:
-        # Check if the trajectory crosses the finish line
-        det_C = det(A, B, C)
-        det_D = det(A, B, D)
-        return det_C * det_D < 0  # The signs are different, indicating a crossing
-
-    return False
