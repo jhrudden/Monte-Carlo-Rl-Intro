@@ -4,7 +4,7 @@ import numpy as np
 
 class BlackJackPolicy:
     @staticmethod
-    def default_blackjack_policy(observation: Tuple[int, int, bool]) -> Tuple[BlackjackAction, float]:
+    def default_blackjack_policy(observation: Tuple[int, int, bool]):
         """
         A simple policy for the Blackjack environment. Stick if the score is 20 or higher, hit otherwise.
 
@@ -23,7 +23,7 @@ class BlackJackPolicy:
             return BlackjackAction.HIT, 1
     
     @staticmethod
-    def create_greedy_policy(Q: Dict[Tuple, List[float]]) -> Tuple[BlackjackAction, float]:
+    def create_greedy_policy(Q: Dict[Tuple, List[float]]):
         """
         A policy that selects the action that maximizes the Q-value for the given observation.
         If the Q-values are equal, the policy will choose based on default_blackjack_policy.
@@ -65,7 +65,7 @@ def argmax(arr: Sequence[float]) -> int:
 class EpsilonPolicy:
     # 4 room environment
     @staticmethod
-    def create_epsilon_soft_policy(Q: Dict[Tuple, List[float]], epsilon: float, na: int) -> Tuple[int, float]:
+    def create_epsilon_soft_policy(Q: Dict[Tuple, List[float]], epsilon: float, na: int):
         """
         A policy that selects the action that maximizes the Q-value for the given observation with probability 1 - epsilon,
 
@@ -84,12 +84,12 @@ class EpsilonPolicy:
             random_probs = np.zeros(na) + epsilon / na
             optimal_action = argmax(Q[state])
             random_probs[optimal_action] += 1 - epsilon
-            action =  np.random.choice(na, p=random_probs), 
+            action =  np.random.choice(na, p=random_probs)
             return action, random_probs[action]
         return get_action
     
     @staticmethod
-    def create_greedy_policy(Q: Dict[Tuple, List[float]]) -> Tuple[int, float]:
+    def create_greedy_policy(Q: Dict[Tuple, List[float]]):
         """
         A policy that selects the action that maximizes the Q-value for the given observation.
 
@@ -103,6 +103,6 @@ class EpsilonPolicy:
         """
 
         def get_action(state: Tuple) -> int:
-            return argmax(Q[state]), 1
+            return np.argmax(Q[state]), 1
         
         return get_action
