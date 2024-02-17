@@ -6,7 +6,6 @@ from enum import IntEnum
 from typing import Tuple, Optional, List
 import numpy as np
 from numpy import ndarray
-from utils import line_cross
 
 def register_env(id: str, entry_point: str, max_episode_steps: Optional[int] = None):
     """Register custom gym environment so that we can use `gym.make()`
@@ -196,7 +195,7 @@ def get_race_track_env(track_type: TrackType = TrackType.Track0):
     try:
         spec = gym.spec('RaceTrack-v0')
     except:
-        register_env("RaceTrack-v0", "env:RaceTrackEnv", max_episode_steps=459)
+        register_env("RaceTrack-v0", "env:RaceTrackEnv", max_episode_steps=1000)
     finally:
         return gym.make('RaceTrack-v0', track_type=track_type)
 
@@ -275,39 +274,45 @@ class RaceTrackEnv(Env):
             self.agent_velocity = (new_velocity_y, new_velocity_x)
 
         new_pos = (self.agent_pos[0] - self.agent_velocity[0], self.agent_pos[1] + self.agent_velocity[1])
-        if self._finish_line(new_pos):
-            done = True
-            reward = 0
-
-        elif not self._valid_position(new_pos):
-            self.agent_velocity = (0, 0)
-            new_pos = self._choose_starting_position()
+        path = self._get_passable_positions(self.agent_velocity)
+        for pos in path:
+            if not self._valid_position(pos):
+                self.agent_velocity = (0, 0)
+                new_pos = self._choose_starting_position()
+                break
+            if pos in self.finish_positions:
+                done = True
+                reward = 0
+                break
         
-        else:
-            self.agent_pos = new_pos
+        self.agent_pos = new_pos
         
         return (*self.agent_pos, *self.agent_velocity), reward, done, False, {}
 
-    def _finish_line(self, new_pos: Tuple[int, int]) -> bool:
+    def _get_passable_positions(self, velocity: Tuple[int, int]) -> List[Tuple[int, int]]:
         """
-        Check if path from current position to new position crosses the finish line
+        Get all cells passed by the car as it moves with the given velocity
+    
         Args:
-            new_pos (Tuple[int, int]): new position
-        Returns:
-            crossed (bool): True if finish line is crossed, False otherwise
-        """
-        # check if any of any of the finish positions cross vector from current position to new position
-        # get goal state with min and max y
-        goal_1 = self.finish_positions[0]
-        goal_last = self.finish_positions[-1]
-
-        # TODO: rewrite if goal lines are note rightmost elements of the track
-        # check agent is either on or to the right of the finish line
-        if new_pos[1] <= goal_1[1]:
-            return False
+            velocity (Tuple[int, int]): velocity of the car
         
-        return line_cross(self.agent_pos, new_pos, goal_1, goal_last)
-
+        Returns:
+            passable_positions (List[Tuple[int, int]]): list of passable positions
+        """
+        vy, vx = velocity
+        mag = np.sqrt(vy**2 + vx**2)
+        direction = (vy / mag, vx / mag) if mag != 0 else (0, 0)
+        end_pos = (self.agent_pos[0] - vy, self.agent_pos[1] - vx)
+        current_pos = self.agent_pos
+        passable_positions = []
+        while np.round(current_pos[0]) != np.round(end_pos[0]) or np.round(current_pos[1]) != np.round(end_pos[1]):
+            cy, cx = current_pos
+            passable_positions.append((int(np.round(cy)), int(np.round(cx))))
+            current_pos = (current_pos[0] - direction[0], (current_pos[1] - direction[1]))
+        
+        passable_positions.append((int(np.round(end_pos[0])), int(np.round(end_pos[1]))))
+        
+        return passable_positions
     
     def _valid_position(self, pos: Tuple[int, int]) -> bool:
         """
