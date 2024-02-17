@@ -5,9 +5,9 @@ import numpy as np
 from collections import defaultdict
 from tqdm import trange
 
-from policy import BlackJackPolicy
+from policy import BlackJackPolicy, EpsilonPolicy
 
-def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum], exploring_starts: bool = False) -> List[Tuple[Tuple[int, int, bool], IntEnum, float]]:
+def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], Tuple[IntEnum, float]], exploring_starts: bool = False) -> List[Tuple[Tuple[int, int, bool], float, IntEnum, float]]:
     """
     Generate an episode using the given policy.
 
@@ -17,17 +17,18 @@ def generate_episode(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum
         exploring_starts: Whether to use exploring starts to sample the initial state and action.
 
     Returns:
-        A list of (state, action, reward) tuples.
+        A list of (state, action, action_prob, reward) tuples.
     """
     state, _ = env.reset()
     episodes = []
     while True:
         if len(episodes) == 0 and exploring_starts:
             action = env.action_space.sample()
+            action_prob = 1 / env.action_space.n
         else:
-            action = policy(state)
+            action, action_prob = policy(state)
         next_state, reward, terminated, truncated, info = env.step(action)
-        episodes.append((state, action, reward))
+        episodes.append((state, action, action_prob, reward))
         if terminated or truncated:
             break
         state = next_state
@@ -54,7 +55,7 @@ def get_first_visit_indices(visits: List) -> Dict[Tuple[int, int, bool], int]:
 
     return first_visit_step
 
-def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum], gamma: float = 0.9, num_episodes: int =10_000) -> Dict[Tuple[int, int, bool], float]:
+def on_policy_monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]], IntEnum], gamma: float = 0.9, num_episodes: int =10_000) -> Dict[Tuple[int, int, bool], float]:
     """
     Estimate the value function of a given policy using first-visit Monte Carlo policy evaluation.
 
@@ -79,7 +80,7 @@ def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]]
         G = 0
         T = len(episode)
         for t in range(T-1, -1, -1):
-            state, action, reward = episode[t]
+            state, action, _, reward = episode[t]
             G = gamma * G + reward
             if first_visit_step[state] == t:
                 N[state] += 1
@@ -87,9 +88,9 @@ def monte_carlo_prediction_fv(env: Env, policy: Callable[[Tuple[int, int, bool]]
 
     return V
 
-def monte_carlo_fv(env: Env, initial_policy_builder: Callable, gamma: float = 0.9, num_episodes: int = 10_000, es: bool = False) -> Tuple[Dict[Tuple[int, int, bool], float], Dict[Tuple[int, int, bool], IntEnum]]:
+def on_policy_monte_carlo_fv(env: Env, initial_policy_builder: Callable, gamma: float = 0.9, num_episodes: int = 10_000, es: bool = False) -> Tuple[Dict[Tuple[int, int, bool], float], Dict[Tuple[int, int, bool], IntEnum]]:
     """
-    Estimate the value function of a given policy using Monte Carlo with exploring starts. Uses first-visit policy evaluation.
+    Estimate the value function of a given policy using on policy Monte Carlo control with exploring starts. Uses first-visit policy evaluation.
 
     Args:
         env: The environment to evaluate the policy on.
@@ -119,7 +120,7 @@ def monte_carlo_fv(env: Env, initial_policy_builder: Callable, gamma: float = 0.
         G = 0
         T = len(episode)
         for t in range(T - 1, -1, -1):
-            state, action, reward = episode[t]
+            state, action, _, reward = episode[t]
             G = gamma * G + reward
             if first_visit_tstep[(state, action)] == t:
                 N[state][action] += 1
@@ -132,7 +133,56 @@ def monte_carlo_fv(env: Env, initial_policy_builder: Callable, gamma: float = 0.
 
     return V, policy, total_returns
 
+def off_policy_monte_carlo(env: Env, behavior_policy_builder: Callable[[Tuple[int, int, bool]], IntEnum], gamma: float = 0.9, num_episodes: int = 10_000) -> Dict[Tuple[int, int, bool], float]: 
+    """
+    Estimate the value function of a target policy using off-policy Monte Carlo control.
 
+    Args:
+        env: The environment to evaluate the policy on.
+        behavior_policy_builder: The behavior policy to follow. Should be a function that takes Q-values and returns a policy.
+        gamma: The discount factor.
+        num_episodes: The number of episodes to sample.
+    """
+    C = defaultdict(lambda: np.zeros(env.action_space.n))
+    Q = defaultdict(lambda: np.random.rand(env.action_space.n))
+
+    target_policy = EpsilonPolicy.create_greedy_policy(Q)
+    behavior_policy = behavior_policy_builder(Q)
+
+    total_returns = np.zeros((2, num_episodes))
+
+    for i in trange(num_episodes):
+        episode = generate_episode(env, behavior_policy, exploring_starts=False)
+        G = 0
+        W = 1
+        update = True
+        for t in range(len(episode) - 1, -1, -1):
+            state, action, action_prob_b, reward = episode[t]
+            G  = gamma * G + reward
+            if not update:
+                pass
+            else:
+                C[state][action] += W
+                Q[state][action] += (W / C[state][action]) * (G - Q[state][action])
+                t_action, action_prob_t = target_policy(state)
+                if action != t_action:
+                    update = False
+                    # Since target policy is deterministic, we can break if the action behavior policy took is not the same as the target policy
+                    # We can't do this if the target policy is stochastic
+                else:
+                    W *= 1 / action_prob_b  # W = W * (pi(A|S) / b(A|S)) = W * (1 / b(A|S)) since pi(A|S) = 1
+        total_returns[0][i] = G
+
+        # get return for target policy
+        episode = generate_episode(env, target_policy, exploring_starts=False)
+        G = 0
+        for t in range(len(episode) - 1, -1, -1):
+            _, _, _, reward = episode[t]
+            G = gamma * G + reward
+        total_returns[1][i] = G
     
+    V = {state: max(Q[state]) for state in Q}
+    return V, target_policy, total_returns
+
 
     
