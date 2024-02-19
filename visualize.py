@@ -56,7 +56,7 @@ def plot_blackjack_policy(ax: plt.Axes, policy: Dict[Tuple[int, int, bool], int]
     # Fill the policy grid with the action values from the policy
     for player_sum in range(12, 22):
         for dealer_card in range(1, 11):
-            action = policy((player_sum, dealer_card, usable_ace))
+            action, action_prob = policy((player_sum, dealer_card, usable_ace))
             policy_grid[player_sum - 12, dealer_card - 1] = action 
     
     policy_grid = np.vstack([np.ones(10), policy_grid])
